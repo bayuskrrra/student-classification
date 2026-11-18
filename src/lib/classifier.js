@@ -250,13 +250,13 @@ async function classifyViaProxy(text) {
     30000
   );
 
-  if (res.status === 503) return null; // proxy ada tapi key server belum di-set
-  if (!res.ok) throw new Error(`proxy ${res.status}`);
-
   // Hosting statis (GitHub Pages / serve) membalas HTML untuk /api/*.
   // Itu berarti tidak ada proxy, bukan error — pakai aturan lokal.
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('json')) return null;
+
+  if (res.status === 503) return null; // proxy ada tapi key server belum di-set
+  if (!res.ok) throw new Error(`proxy ${res.status}`);
 
   let data = null;
   try { data = await res.json(); } catch (_) { return null; }
