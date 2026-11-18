@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/student-classification/static/css/main.00a01778.css",
-    "main.js": "/student-classification/static/js/main.fc3cf707.js",
-    "index.html": "/student-classification/index.html",
-    "main.00a01778.css.map": "/student-classification/static/css/main.00a01778.css.map",
-    "main.fc3cf707.js.map": "/student-classification/static/js/main.fc3cf707.js.map"
+    "main.css": "./static/css/main.b029ffbc.css",
+    "main.js": "./static/js/main.216e4ca7.js",
+    "index.html": "./index.html",
+    "main.b029ffbc.css.map": "./static/css/main.b029ffbc.css.map",
+    "main.216e4ca7.js.map": "./static/js/main.216e4ca7.js.map"
   },
   "entrypoints": [
-    "static/css/main.00a01778.css",
-    "static/js/main.fc3cf707.js"
+    "static/css/main.b029ffbc.css",
+    "static/js/main.216e4ca7.js"
   ]
 }
