@@ -1,18 +1,38 @@
 import React, { useEffect, useState } from 'react';
 import StudentForm from './components/StudentForm';
 import Results from './components/Results';
+import AiSettings from './components/AiSettings';
 import { classify } from './lib/classifier';
+import { getLlmSettings } from './lib/llmSettings';
 import { loadHistory, saveRecord, clearHistory, toCSV } from './lib/storage';
+
+const TABS = [
+  { id: 'beranda', label: 'Beranda' },
+  { id: 'klasifikasi', label: 'Klasifikasi' },
+  { id: 'riwayat', label: 'Riwayat' },
+  { id: 'tentang', label: 'Profil Sekolah' },
+];
 
 export default function App() {
   const [tab, setTab] = useState('beranda');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiCfg, setAiCfg] = useState({ enabled: false, model: '' });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [siswa, setSiswa] = useState(null);
   const [history, setHistory] = useState([]);
+
   useEffect(() => {
     setHistory(loadHistory());
+    setAiCfg(getLlmSettings());
   }, []);
+
+  const go = (id) => {
+    setTab(id);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSubmit = async ({ nama, kelas, keluhan }) => {
     setLoading(true);
@@ -61,16 +81,13 @@ export default function App() {
 
   return (
     <div className="site-container">
-      {/* Top Header / Company Profile Navigation */}
       <header className="navbar">
-        <div className="nav-brand" onClick={() => setTab('beranda')}>
-          <img 
-            src="https://www.smpwisatasanur.sch.id/storage/website/homepage-highlights/CwH6P0xbB28Jv5SXocfDHRU8O2dmqVNDI8dBlcom.png" 
-            alt="Logo SMP Wisata Sanur" 
+        <div className="nav-brand" onClick={() => go('beranda')}>
+          <img
+            src="https://www.smpwisatasanur.sch.id/storage/website/homepage-highlights/CwH6P0xbB28Jv5SXocfDHRU8O2dmqVNDI8dBlcom.png"
+            alt="Logo SMP Wisata Sanur"
             className="logo-img"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
+            onError={(e) => { e.target.style.display = 'none'; }}
           />
           <div className="brand-text">
             <div className="school-name">SMP Wisata Sanur</div>
@@ -78,56 +95,74 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="nav-links">
-          <button className={`nav-btn ${tab === 'beranda' ? 'active' : ''}`} onClick={() => setTab('beranda')}>
-            Beranda
-          </button>
-          <button className={`nav-btn ${tab === 'klasifikasi' ? 'active' : ''}`} onClick={() => setTab('klasifikasi')}>
-            Klasifikasi
-          </button>
-          <button className={`nav-btn ${tab === 'riwayat' ? 'active' : ''}`} onClick={() => setTab('riwayat')}>
-            Riwayat ({history.length})
-          </button>
-          <button className={`nav-btn ${tab === 'tentang' ? 'active' : ''}`} onClick={() => setTab('tentang')}>
-            Profil Sekolah
+        <button
+          type="button"
+          className="menu-toggle"
+          aria-label="Buka menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+        >
+          <span /><span /><span />
+        </button>
+
+        <nav className={`nav-links ${menuOpen ? 'open' : ''}`}>
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              className={`nav-btn ${tab === t.id ? 'active' : ''}`}
+              onClick={() => go(t.id)}
+            >
+              {t.label}
+              {t.id === 'riwayat' && history.length > 0 ? ` (${history.length})` : ''}
+            </button>
+          ))}
+          <button
+            className={`ai-pill ${aiCfg.enabled ? 'on' : 'off'}`}
+            onClick={() => { setAiOpen(true); setMenuOpen(false); }}
+            title={aiCfg.enabled ? `AI aktif: ${aiCfg.model}` : 'Klik untuk mengaktifkan AI'}
+          >
+            <span className="dot" />
+            {aiCfg.enabled ? 'AI aktif' : 'Aturan lokal'}
           </button>
         </nav>
       </header>
 
-      {/* Main Page Content */}
       {tab === 'beranda' && (
         <main className="main-content">
-          {/* Hero Section */}
           <section className="hero-section">
             <div className="hero-left">
-              <div className="pill-badge">
-                SMP Wisata Sanur · UKS System
-              </div>
+              <div className="pill-badge">SMP Wisata Sanur · UKS System</div>
               <h1 className="hero-title">Sistem Klasifikasi Kesehatan Siswa</h1>
               <p className="hero-subtitle">
-                Fasilitas pendukung triase untuk membantu penanganan dan evaluasi kondisi kesehatan siswa di Unit Kesehatan Sekolah (UKS).
+                Fasilitas pendukung triase untuk membantu penanganan dan evaluasi kondisi kesehatan siswa
+                di Unit Kesehatan Sekolah (UKS).
               </p>
               <div className="hero-actions">
-                <button className="btn-hero-primary" onClick={() => setTab('klasifikasi')}>
+                <button className="btn-hero-primary" onClick={() => go('klasifikasi')}>
                   Mulai Klasifikasi
                 </button>
-                <button className="btn-hero-secondary" onClick={() => setTab('tentang')}>
-                  Profil Sekolah
+                <button className="btn-hero-secondary" onClick={() => setAiOpen(true)}>
+                  {aiCfg.enabled ? 'Pengaturan AI' : 'Aktifkan AI'}
                 </button>
               </div>
+              <p className="hero-note">
+                {aiCfg.enabled
+                  ? `Klasifikasi memakai model ${aiCfg.model}.`
+                  : 'Belum ada API key — sistem berjalan dengan aturan lokal. Klik "Aktifkan AI" untuk memakai model bahasa.'}
+              </p>
             </div>
 
             <div className="hero-right">
               <div className="photo-frame">
-                <img 
-                  src="https://www.smpwisatasanur.sch.id/storage/website/homepage-highlights/CwH6P0xbB28Jv5SXocfDHRU8O2dmqVNDI8dBlcom.png" 
-                  alt="SMP Wisata Sanur" 
+                <img
+                  src="https://www.smpwisatasanur.sch.id/storage/website/homepage-highlights/CwH6P0xbB28Jv5SXocfDHRU8O2dmqVNDI8dBlcom.png"
+                  alt="SMP Wisata Sanur"
                   className="school-photo"
                   onError={(e) => {
-                    e.target.src = "https://www.smpwisatasanur.sch.id/storage/website/galleries/XfRQmIjubGCfjzThvjm97wE3lOA47ZSn2LwnNHRf.jpg";
+                    e.target.src = 'https://www.smpwisatasanur.sch.id/storage/website/galleries/XfRQmIjubGCfjzThvjm97wE3lOA47ZSn2LwnNHRf.jpg';
                   }}
                 />
-                <div className="photo-overlay"></div>
+                <div className="photo-overlay" />
                 <div className="school-tag-overlay">
                   <span>Jl. Danau Buyan No.58, Sanur, Denpasar Selatan, Bali</span>
                 </div>
@@ -135,7 +170,6 @@ export default function App() {
             </div>
           </section>
 
-          {/* Feature Highlights Grid */}
           <section className="features-grid">
             <div className="feature-card">
               <div className="feature-info">
@@ -143,14 +177,12 @@ export default function App() {
                 <p>Mengevaluasi tingkat keparahan berdasarkan gejala dan keluhan yang disampaikan siswa.</p>
               </div>
             </div>
-
             <div className="feature-card">
               <div className="feature-info">
                 <h3>Rekomendasi Tindakan</h3>
                 <p>Petunjuk tindakan standar seperti observasi UKS, istirahat, atau rujukan medis.</p>
               </div>
             </div>
-
             <div className="feature-card">
               <div className="feature-info">
                 <h3>Pencatatan Riwayat</h3>
@@ -159,23 +191,19 @@ export default function App() {
             </div>
           </section>
 
-          {/* Classification Levels Section */}
           <section className="severity-section">
             <div className="section-header">
               <h2>Kategori Evaluasi Kesehatan</h2>
             </div>
-
             <div className="severity-cards">
               <div className="severity-card">
                 <span className="severity-title">Ringan</span>
                 <p className="severity-desc">Siswa dapat diistirahatkan dan diobservasi singkat di UKS (±15-30 menit) sebelum kembali ke kelas.</p>
               </div>
-
               <div className="severity-card">
                 <span className="severity-title">Sedang</span>
                 <p className="severity-desc">Memerlukan pemantauan berkala di UKS dan penanganan standar, serta koordinasi dengan wali siswa bila diperlukan.</p>
               </div>
-
               <div className="severity-card">
                 <span className="severity-title">Berat</span>
                 <p className="severity-desc">Perlu pertolongan pertama segera, pemanggilan orang tua/wali, serta penanganan rujukan ke faskes terdekat.</p>
@@ -185,11 +213,10 @@ export default function App() {
         </main>
       )}
 
-      {/* Form Page */}
       {tab === 'klasifikasi' && (
         <main className="main-content container-narrow">
           <div className="form-page-header">
-            <h2>Form Pemeriksaan & Triase UKS</h2>
+            <h2>Form Pemeriksaan &amp; Triase UKS</h2>
             <p className="muted">Isi informasi siswa dan deskripsi keluhan secara lengkap untuk memulai pemeriksaan.</p>
           </div>
 
@@ -199,7 +226,8 @@ export default function App() {
             <>
               {siswa && (
                 <p className="muted center">
-                  Data Siswa: <strong>{siswa.nama || 'Tanpa nama'}</strong> {siswa.kelas ? `· Kelas ${siswa.kelas}` : ''}
+                  Data Siswa: <strong>{siswa.nama || 'Tanpa nama'}</strong>
+                  {siswa.kelas ? ` · Kelas ${siswa.kelas}` : ''}
                 </p>
               )}
               <Results result={result} onReset={reset} />
@@ -208,7 +236,6 @@ export default function App() {
         </main>
       )}
 
-      {/* History Page */}
       {tab === 'riwayat' && (
         <main className="main-content container-narrow">
           <div className="card">
@@ -243,11 +270,11 @@ export default function App() {
                   <tbody>
                     {history.map((h) => (
                       <tr key={h.id}>
-                        <td className="nowrap">{h.waktu}</td>
-                        <td>{h.nama}</td>
-                        <td>{h.kelas}</td>
-                        <td className="ellipsis" title={h.keluhan}>{h.keluhan}</td>
-                        <td>
+                        <td className="nowrap" data-label="Waktu">{h.waktu}</td>
+                        <td data-label="Nama">{h.nama}</td>
+                        <td data-label="Kelas">{h.kelas}</td>
+                        <td className="ellipsis" title={h.keluhan} data-label="Keluhan">{h.keluhan}</td>
+                        <td data-label="Status">
                           <span className={`tag ${h.status === 'LAYAK' ? 'ok' : h.status === 'TIDAK LAYAK' ? 'bad' : 'warn'}`}>
                             {h.status}
                           </span>
@@ -262,29 +289,33 @@ export default function App() {
         </main>
       )}
 
-      {/* About Page */}
       {tab === 'tentang' && (
         <main className="main-content container-narrow">
           <div className="card about-card">
-            <h2>Profil & Layanan Kesehatan SMP Wisata Sanur</h2>
+            <h2>Profil &amp; Layanan Kesehatan SMP Wisata Sanur</h2>
             <p>
-              Sistem Pelayanan Kesehatan UKS di <strong>SMP Wisata Sanur</strong> membantu memfasilitasi penanganan awal serta triase kesehatan bagi peserta didik selama kegiatan persekolahan berlangsung.
+              Sistem Pelayanan Kesehatan UKS di <strong>SMP Wisata Sanur</strong> membantu memfasilitasi
+              penanganan awal serta triase kesehatan bagi peserta didik selama kegiatan persekolahan berlangsung.
             </p>
 
-            <div className="school-info-box" style={{ marginTop: '24px', background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ margin: '0 0 12px', fontSize: '1rem' }}>Informasi Satuan Pendidikan</h3>
-              <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8', fontSize: '0.9rem', color: '#334155' }}>
+            <div className="school-info-box">
+              <h3>Informasi Satuan Pendidikan</h3>
+              <ul>
                 <li><strong>Nama Sekolah:</strong> SMP Wisata Sanur</li>
                 <li><strong>Alamat:</strong> Jl. Danau Buyan No.58, Sanur, Denpasar Selatan, Kota Denpasar, Bali 80227</li>
                 <li><strong>Kontak:</strong> (0361) 288508 | info@smpwisatasanur.sch.id</li>
-                <li><strong>Website Resmi:</strong> <a href="https://www.smpwisatasanur.sch.id" target="_blank" rel="noreferrer" style={{ color: '#1e3a8a' }}>smpwisatasanur.sch.id</a></li>
+                <li>
+                  <strong>Website Resmi:</strong>{' '}
+                  <a href="https://www.smpwisatasanur.sch.id" target="_blank" rel="noreferrer">
+                    smpwisatasanur.sch.id
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
         </main>
       )}
 
-      {/* Footer */}
       <footer className="footer">
         <div className="footer-content">
           <div className="footer-left">
@@ -293,6 +324,12 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      <AiSettings
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        onSaved={(cfg) => setAiCfg(cfg)}
+      />
     </div>
   );
 }

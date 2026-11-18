@@ -1,136 +1,124 @@
-# Sistem Klasifikasi Kelayakan Siswa (UKS)
+# Sistem Klasifikasi Kelayakan Siswa (UKS) — SMP Wisata Sanur
 
 Siswa datang ke UKS, mendeskripsikan keluhannya, lalu sistem mengklasifikasi:
 **LAYAK** melanjutkan belajar, **PERLU OBSERVASI** di UKS, atau **TIDAK LAYAK** (dirujuk).
 
-React 19 + PWA (installable, offline shell). Tanpa backend.
+React 19 + PWA (installable, offline shell). Responsif penuh: desktop, tablet, dan HP.
 
 ## Menjalankan
 
 ```bash
 npm install
-cp .env.example .env      # opsional, isi API key untuk mode LLM
 npm start                 # http://localhost:3000
 npm run build             # produksi ke folder build/
 ```
 
-Tanpa `.env` aplikasi tetap jalan penuh memakai **mode aturan lokal** (rule-based,
+Tanpa API key aplikasi tetap jalan penuh memakai **mode aturan lokal** (rule-based,
 tanpa internet, tanpa biaya).
 
 ## Mode klasifikasi
 
 | Mode | Kapan aktif | Perilaku |
 |---|---|---|
-| LLM | `REACT_APP_LLM_API_KEY` terisi | Kirim keluhan ke endpoint OpenAI-compatible, minta balasan JSON terstruktur |
-| Aturan lokal | Key kosong / LLM gagal / offline | Pencocokan regex berbobot: red flag → TIDAK LAYAK, skor >=6 → TIDAK LAYAK, >=2 → OBSERVASI, sisanya LAYAK |
+| AI (browser) | Key diisi lewat menu **Pengaturan AI** | Request langsung ke provider OpenAI-compatible dari browser |
+| AI (server) | `LLM_API_KEY` di-set di environment Vercel | Lewat proxy `/api/classify`, key tidak pernah masuk bundle |
+| Aturan lokal | Key kosong / AI gagal / offline | Pencocokan regex berbobot: red flag → TIDAK LAYAK, skor ≥6 → TIDAK LAYAK, ≥2 → OBSERVASI, sisanya LAYAK |
 
-**Safety override:** bila aturan lokal menemukan tanda bahaya tetapi LLM bilang LAYAK,
+Urutan percobaan: **pengaturan pengguna → proxy server → aturan lokal**.
+
+**Safety override:** bila aturan lokal menemukan tanda bahaya tetapi AI bilang LAYAK,
 hasil lokal yang dipakai. Model tidak boleh meloloskan kasus berbahaya.
 
-## Konfigurasi LLM
+## Mengaktifkan AI (tanpa build ulang)
 
-```env
-REACT_APP_LLM_API_KEY=xxx
-REACT_APP_LLM_BASE_URL=https://api.openai.com/v1
-REACT_APP_LLM_MODEL=gpt-4o-mini
+1. Buka aplikasi → tombol status di navbar (kanan atas) atau **"Aktifkan AI"** di beranda.
+2. Pilih provider (default **Kenari.id**), base URL dan model terisi otomatis.
+3. Tempel API key → **Tes koneksi** → **Simpan**.
+4. Status di navbar berubah menjadi **AI aktif** dan setiap klasifikasi memakai model tersebut.
+
+Key disimpan di `localStorage` browser itu saja (tidak dikirim ke server aplikasi).
+Untuk mengganti/menghapus: buka panel yang sama → **Hapus key**.
+
+### Provider yang didukung (semua OpenAI-compatible)
+
+| Provider | Base URL | Contoh model |
+|---|---|---|
+| Kenari.id | `https://kenari.id/v1` | `glm-4-7-flash:free` |
+| OpenRouter | `https://openrouter.ai/api/v1` | `meta-llama/llama-3.3-70b-instruct:free` |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| Together | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
+| Ollama lokal | `http://localhost:11434/v1` | `llama3.1` (key: `ollama`) |
+
+> Base URL Kenari.id adalah `https://kenari.id/v1` (bukan `api.kenari.id`).
+
+## AI lewat server (opsional, lebih aman untuk sekolah)
+
+Set di Vercel → Settings → Environment Variables, lalu redeploy:
+
+```
+LLM_API_KEY=kn-xxxxxxxx
+LLM_BASE_URL=https://kenari.id/v1
+LLM_MODEL=glm-4-7-flash:free
 ```
 
-Provider lain yang didukung (semua OpenAI-compatible): Kenari.id, OpenRouter, Groq,
-Together, Ollama lokal (`http://localhost:11434/v1`, key `ollama`).
-
-> Catatan: `REACT_APP_*` tertanam di bundle. Untuk produksi sekolah, letakkan key di
-> proxy serverless (Vercel function) agar tidak bisa dicuri dari browser.
+`GET /api/classify` mengembalikan `{configured, model}` untuk cek status.
+Tanpa key, endpoint membalas `503` dan frontend otomatis memakai aturan lokal.
 
 ## Fitur
 
 - Form nama/kelas/keluhan + contoh keluhan sekali klik
 - Hasil: status, keyakinan %, alasan, rekomendasi tindakan, daftar tanda bahaya
+- Panel **Pengaturan AI** (provider, base URL, model, key, tes koneksi)
+- Indikator mode aktif di navbar (AI aktif / aturan lokal)
 - Riwayat 200 entri terakhir (localStorage), ekspor CSV, cetak lembar hasil
-- Indikator online/offline dan mode AI aktif
-- PWA: manifest, service worker (cache app shell), bisa diinstal ke home screen
+- PWA: manifest, service worker (network-first untuk HTML agar update langsung terpakai)
+- Responsif: nav hamburger di HP, tabel riwayat berubah jadi kartu, modal bottom-sheet
 
 ## Struktur
 
-```src/
-  lib/classifier.js           aturan lokal + pemanggilan LLM + safety override
+```
+src/
+  lib/classifier.js           aturan lokal + LLM + proxy + safety override
+  lib/llmSettings.js          preset provider + simpan key di localStorage
   lib/storage.js              riwayat localStorage + ekspor CSV
   components/StudentForm.js   input keluhan
   components/Results.js       kartu hasil + cetak
-  App.js                      tab klasifikasi/riwayat, status pill
+  components/AiSettings.js    modal pengaturan AI
+  App.js                      tab, status AI, riwayat
+  index.css                   tema + seluruh breakpoint responsif
+api/classify.js               proxy serverless (Vercel)
 public/
   manifest.json  service-worker.js  index.html
 ```
 
 ## Deploy
 
-### Vercel (root domain dengan alias anmaa.ukswisata)
-
-1. Import repo ke Vercel
-2. Framework: "Create React App"
-3. Build: `npm run build` dengan `PUBLIC_URL=/` (wajib, bukan `/uks/`)
-4. Output: `build`
-5. Tambahkan alias `anmaa.ukswisata` di Vercel project settings
+### Vercel
 
 ```bash
 PUBLIC_URL=/ npm run build
+npx vercel --yes --prod
 ```
 
-### Konfigurasi LLM di Vercel
+Project: `ukswisata` (org `bayuskrrra`). Live: https://ukswisata.vercel.app
 
-Setelah deploy, untuk mengaktifkan klasifikasi berbasis AI:
+### GitHub Pages
 
-1. Di Vercel Dashboard:
-   - Settings → Environment Variables
-   - Tambah environment variable:
-     - Name: `LLM_API_KEY`
-     - Value: API key provider (misal OpenAI, Kenari, Groq, dll.)
-     - Scope: Production
-   - Opsi tambahan:
-     - `LLM_BASE_URL`: Default `https://api.openai.com/v1`
-     - `LLM_MODEL`: Default `gpt-4o-mini`
-2. Proxy serverless `/api/classify` otomatis terbentuk dan metrics diperbarui → frontend sekarang klasifikasinya dynamic (bukan statis 75%).
-3. Jika belum ada key, sistem fallback ke aturan lokal (rule-based, tetap bervariasi keyakinan berdasarkan skor keluhan).
+```bash
+npm run deploy
+```
 
-### Netlify
-
-Build `npm run build`, publish folder `build`.
+Tanpa proxy server, jadi AI hanya bisa lewat panel **Pengaturan AI** (key di browser).
 
 ### VPS (hosting lama)
 
-Build pakai `PUBLIC_URL=/uks/`:
 ```bash
 PUBLIC_URL=/uks/ npm run build
 scp -r build/. ubuntu@168.110.223.109:/var/www/uks.app/
-```
-
-### Pindah ke subdomain sendiri (opsional)
-
-1. Tambah A record `uks.anmaa.ukswisata` -> IP Vercel di DNS
-2. Konfigurasi alias `anmaa.ukswisata` di Vercel project settings
-3. `sudo certbot --nginx -d uks.anmaa.ukswisata`
-
-### Vercel root domain deployment
-
-```bash
-PUBLIC_URL=/ npm run build
 ```
 
 ## Batasan
 
 Alat bantu triase untuk petugas UKS, **bukan** pengganti diagnosis medis.
 Riwayat hanya tersimpan di perangkat (localStorage) — untuk multi-petugas perlu backend.
-
-## Status deploy (live)
-
-- URL: https://spensix.web.id/uks/
-- Server: VPS Oracle ARM64 (168.110.223.109), nginx
-- Root: /var/www/uks.app
-- Build memakai `PUBLIC_URL=/uks/` (wajib kalau di-path `/uks/`)
-- nginx: blok `location /uks/` di /etc/nginx/sites-available/smarttv
-  (backup: smarttv.bak-uks)
-
-### Vercel root domain deployment
-
-```bash
-PUBLIC_URL=/ npm run build
-```

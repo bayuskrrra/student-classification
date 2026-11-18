@@ -1,16 +1,23 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/service-worker.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     }
   ],
-  "alias": ["anmaa.ukswisata"],
   "functions": {
     "api/**/*.js": {
       "memory": 1024,
-      "maxDuration": 10
+      "maxDuration": 30
     }
   }
 }
