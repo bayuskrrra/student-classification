@@ -84,10 +84,9 @@ export default function App() {
       <header className="navbar">
         <div className="nav-brand" onClick={() => go('beranda')}>
           <img
-            src="https://www.smpwisatasanur.sch.id/storage/website/homepage-highlights/CwH6P0xbB28Jv5SXocfDHRU8O2dmqVNDI8dBlcom.png"
+            src={`${process.env.PUBLIC_URL}/logo192.png`}
             alt="Logo SMP Wisata Sanur"
             className="logo-img"
-            onError={(e) => { e.target.style.display = 'none'; }}
           />
           <div className="brand-text">
             <div className="school-name">SMP Wisata Sanur</div>
@@ -153,20 +152,14 @@ export default function App() {
             </div>
 
             <div className="hero-right">
-              <div className="photo-frame">
+              <div className="photo-frame logo-frame">
                 <img
-                  src="https://www.smpwisatasanur.sch.id/storage/website/homepage-highlights/CwH6P0xbB28Jv5SXocfDHRU8O2dmqVNDI8dBlcom.png"
-                  alt="SMP Wisata Sanur"
-                  className="school-photo"
-                  onError={(e) => {
-                    e.target.src = 'https://www.smpwisatasanur.sch.id/storage/website/galleries/XfRQmIjubGCfjzThvjm97wE3lOA47ZSn2LwnNHRf.jpg';
-                  }}
+                  src={`${process.env.PUBLIC_URL}/logo512.png`}
+                  alt="Logo SMP Wisata Sanur"
+                  className="school-photo logo"
                 />
-                <div className="photo-overlay" />
-                <div className="school-tag-overlay">
-                  <span>Jl. Danau Buyan No.58, Sanur, Denpasar Selatan, Bali</span>
-                </div>
               </div>
+              <p className="photo-caption">Jl. Danau Buyan No.58, Sanur, Denpasar Selatan, Bali</p>
             </div>
           </section>
 
