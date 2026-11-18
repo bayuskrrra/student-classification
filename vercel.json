@@ -6,5 +6,11 @@
       "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     }
   ],
-  "alias": ["anmaa.ukswisata"]
+  "alias": ["anmaa.ukswisata"],
+  "functions": {
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  }
 }

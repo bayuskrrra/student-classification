@@ -75,6 +75,22 @@ public/
 PUBLIC_URL=/ npm run build
 ```
 
+### Konfigurasi LLM di Vercel
+
+Setelah deploy, untuk mengaktifkan klasifikasi berbasis AI:
+
+1. Di Vercel Dashboard:
+   - Settings → Environment Variables
+   - Tambah environment variable:
+     - Name: `LLM_API_KEY`
+     - Value: API key provider (misal OpenAI, Kenari, Groq, dll.)
+     - Scope: Production
+   - Opsi tambahan:
+     - `LLM_BASE_URL`: Default `https://api.openai.com/v1`
+     - `LLM_MODEL`: Default `gpt-4o-mini`
+2. Proxy serverless `/api/classify` otomatis terbentuk dan metrics diperbarui → frontend sekarang klasifikasinya dynamic (bukan statis 75%).
+3. Jika belum ada key, sistem fallback ke aturan lokal (rule-based, tetap bervariasi keyakinan berdasarkan skor keluhan).
+
 ### Netlify
 
 Build `npm run build`, publish folder `build`.

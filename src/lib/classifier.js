@@ -169,19 +169,57 @@ export async function classifyLLM(text, cfg) {
   };
 }
 
-// Gabungan: LLM bila tersedia, jika gagal pakai aturan lokal.
+// ---------- Proxy serverless (Vercel /api/classify) ----------
+// Key LLM disimpan di server, tidak pernah masuk bundle browser.
+async function classifyViaProxy(text) {
+  const res = await fetch('/api/classify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keluhan: text }),
+  });
+
+  if (res.status === 503) {
+    // Proxy ada tapi key belum di-set -> pakai aturan lokal.
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`proxy ${res.status}`);
+  }
+  const data = await res.json();
+  if (!data || !data.status) throw new Error('balasan proxy tidak valid');
+  return data;
+}
+
+// Gabungan: coba proxy LLM dulu, jika tidak tersedia/gagal pakai aturan lokal.
 // Tanda bahaya lokal selalu menang (safety override).
 export async function classify(text) {
   const local = classifyLocal(text);
+
+  // Mode langsung (dev lokal dengan .env) tetap didukung.
   const cfg = llmConfig();
-  if (!cfg.enabled) return { ...local, catatan: 'Mode aturan lokal (API key belum diisi).' };
+  if (cfg.enabled) {
+    try {
+      const llm = await classifyLLM(text, cfg);
+      if (local.redFlags.length > 0 && llm.status === STATUS.LAYAK) {
+        return { ...local, catatan: 'Override keselamatan: tanda bahaya terdeteksi.' };
+      }
+      return llm;
+    } catch (e) {
+      return { ...local, catatan: `LLM gagal (${e.message}). Memakai aturan lokal.` };
+    }
+  }
+
+  // Mode produksi: lewat proxy serverless.
   try {
-    const llm = await classifyLLM(text, cfg);
-    if (local.redFlags.length > 0 && llm.status === STATUS.LAYAK) {
+    const proxied = await classifyViaProxy(text);
+    if (!proxied) {
+      return { ...local, catatan: 'Mode aturan lokal (LLM_API_KEY belum di-set di server).' };
+    }
+    if (local.redFlags.length > 0 && proxied.status === STATUS.LAYAK) {
       return { ...local, catatan: 'Override keselamatan: tanda bahaya terdeteksi.' };
     }
-    return llm;
+    return proxied;
   } catch (e) {
-    return { ...local, catatan: `LLM gagal (${e.message}). Memakai aturan lokal.` };
+    return { ...local, catatan: `LLM tidak tersedia (${e.message}). Memakai aturan lokal.` };
   }
 }
