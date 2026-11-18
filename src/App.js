@@ -152,14 +152,17 @@ export default function App() {
             </div>
 
             <div className="hero-right">
-              <div className="photo-frame logo-frame">
+              <div className="photo-frame">
                 <img
-                  src={`${process.env.PUBLIC_URL}/logo512.png`}
-                  alt="Logo SMP Wisata Sanur"
-                  className="school-photo logo"
+                  src={`${process.env.PUBLIC_URL}/school.jpg`}
+                  alt="Lingkungan SMP Wisata Sanur"
+                  className="school-photo"
                 />
+                <div className="photo-overlay" />
+                <div className="school-tag-overlay">
+                  <span>Jl. Danau Buyan No.58, Sanur, Denpasar Selatan, Bali</span>
+                </div>
               </div>
-              <p className="photo-caption">Jl. Danau Buyan No.58, Sanur, Denpasar Selatan, Bali</p>
             </div>
           </section>
 
