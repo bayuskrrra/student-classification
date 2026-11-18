@@ -1,70 +1,120 @@
-# Getting Started with Create React App
+# Sistem Klasifikasi Kelayakan Siswa (UKS)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Siswa datang ke UKS, mendeskripsikan keluhannya, lalu sistem mengklasifikasi:
+**LAYAK** melanjutkan belajar, **PERLU OBSERVASI** di UKS, atau **TIDAK LAYAK** (dirujuk).
 
-## Available Scripts
+React 19 + PWA (installable, offline shell). Tanpa backend.
 
-In the project directory, you can run:
+## Menjalankan
 
-### `npm start`
+```bash
+npm install
+cp .env.example .env      # opsional, isi API key untuk mode LLM
+npm start                 # http://localhost:3000
+npm run build             # produksi ke folder build/
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Tanpa `.env` aplikasi tetap jalan penuh memakai **mode aturan lokal** (rule-based,
+tanpa internet, tanpa biaya).
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Mode klasifikasi
 
-### `npm test`
+| Mode | Kapan aktif | Perilaku |
+|---|---|---|
+| LLM | `REACT_APP_LLM_API_KEY` terisi | Kirim keluhan ke endpoint OpenAI-compatible, minta balasan JSON terstruktur |
+| Aturan lokal | Key kosong / LLM gagal / offline | Pencocokan regex berbobot: red flag → TIDAK LAYAK, skor >=6 → TIDAK LAYAK, >=2 → OBSERVASI, sisanya LAYAK |
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+**Safety override:** bila aturan lokal menemukan tanda bahaya tetapi LLM bilang LAYAK,
+hasil lokal yang dipakai. Model tidak boleh meloloskan kasus berbahaya.
 
-### `npm run build`
+## Konfigurasi LLM
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```env
+REACT_APP_LLM_API_KEY=xxx
+REACT_APP_LLM_BASE_URL=https://api.openai.com/v1
+REACT_APP_LLM_MODEL=gpt-4o-mini
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Provider lain yang didukung (semua OpenAI-compatible): Kenari.id, OpenRouter, Groq,
+Together, Ollama lokal (`http://localhost:11434/v1`, key `ollama`).
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+> Catatan: `REACT_APP_*` tertanam di bundle. Untuk produksi sekolah, letakkan key di
+> proxy serverless (Vercel function) agar tidak bisa dicuri dari browser.
 
-### `npm run eject`
+## Fitur
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+- Form nama/kelas/keluhan + contoh keluhan sekali klik
+- Hasil: status, keyakinan %, alasan, rekomendasi tindakan, daftar tanda bahaya
+- Riwayat 200 entri terakhir (localStorage), ekspor CSV, cetak lembar hasil
+- Indikator online/offline dan mode AI aktif
+- PWA: manifest, service worker (cache app shell), bisa diinstal ke home screen
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Struktur
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```src/
+  lib/classifier.js           aturan lokal + pemanggilan LLM + safety override
+  lib/storage.js              riwayat localStorage + ekspor CSV
+  components/StudentForm.js   input keluhan
+  components/Results.js       kartu hasil + cetak
+  App.js                      tab klasifikasi/riwayat, status pill
+public/
+  manifest.json  service-worker.js  index.html
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Deploy
 
-## Learn More
+### Vercel (root domain dengan alias anmaa.ukswisata)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. Import repo ke Vercel
+2. Framework: "Create React App"
+3. Build: `npm run build` dengan `PUBLIC_URL=/` (wajib, bukan `/uks/`)
+4. Output: `build`
+5. Tambahkan alias `anmaa.ukswisata` di Vercel project settings
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+PUBLIC_URL=/ npm run build
+```
 
-### Code Splitting
+### Netlify
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Build `npm run build`, publish folder `build`.
 
-### Analyzing the Bundle Size
+### VPS (hosting lama)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Build pakai `PUBLIC_URL=/uks/`:
+```bash
+PUBLIC_URL=/uks/ npm run build
+scp -r build/. ubuntu@168.110.223.109:/var/www/uks.app/
+```
 
-### Making a Progressive Web App
+### Pindah ke subdomain sendiri (opsional)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+1. Tambah A record `uks.anmaa.ukswisata` -> IP Vercel di DNS
+2. Konfigurasi alias `anmaa.ukswisata` di Vercel project settings
+3. `sudo certbot --nginx -d uks.anmaa.ukswisata`
 
-### Advanced Configuration
+### Vercel root domain deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```bash
+PUBLIC_URL=/ npm run build
+```
 
-### Deployment
+## Batasan
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Alat bantu triase untuk petugas UKS, **bukan** pengganti diagnosis medis.
+Riwayat hanya tersimpan di perangkat (localStorage) — untuk multi-petugas perlu backend.
 
-### `npm run build` fails to minify
+## Status deploy (live)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- URL: https://spensix.web.id/uks/
+- Server: VPS Oracle ARM64 (168.110.223.109), nginx
+- Root: /var/www/uks.app
+- Build memakai `PUBLIC_URL=/uks/` (wajib kalau di-path `/uks/`)
+- nginx: blok `location /uks/` di /etc/nginx/sites-available/smarttv
+  (backup: smarttv.bak-uks)
+
+### Vercel root domain deployment
+
+```bash
+PUBLIC_URL=/ npm run build
+```
