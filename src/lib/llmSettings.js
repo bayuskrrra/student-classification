@@ -74,11 +74,27 @@ export const PROVIDERS = [
 ];
 
 export const DEFAULT_SETTINGS = {
-  provider: 'ollama',
-  base: 'http://localhost:11434/v1',
-  model: 'llama3.1',
+  provider: 'groq',
+  base: 'https://api.groq.com/openai/v1',
+  model: 'qwen/qwen3.8-27b',
   key: '',
 };
+
+// True kalau halaman dibuka lewat https:// (Vercel / GitHub Pages).
+// Browser modern memblokir fetch https:// -> http://localhost (mixed content +
+// private network access), jadi Ollama lokal TIDAK bisa dipakai dari situs live.
+export function isHttpsPage() {
+  try {
+    return window.location.protocol === 'https:';
+  } catch (_) {
+    return false;
+  }
+}
+
+export function isLocalBase(base) {
+  const b = (base || '').toLowerCase();
+  return b.includes('localhost') || b.includes('127.0.0.1') || b.includes('ollama');
+}
 
 export function getLlmSettings() {
   let saved = {};
@@ -87,17 +103,16 @@ export function getLlmSettings() {
   } catch (_) {
     saved = {};
   }
-  const provider = PROVIDERS.find((p) => p.id === saved.provider) || PROVIDERS.find((p) => p.id === 'ollama');
-  const base = (saved.base || provider.base || '').replace(/\/+$/, '');
-  const model = saved.model || provider.model || '';
-  const key = saved.key || '';
-  const isOllama = (saved.provider || 'ollama') === 'ollama' || base.includes('localhost') || base.includes('127.0.0.1') || base.includes('ollama');
+  const base = (saved.base || process.env.REACT_APP_LLM_BASE_URL || DEFAULT_SETTINGS.base).replace(/\/+$/, '');
+  const model = saved.model || process.env.REACT_APP_LLM_MODEL || DEFAULT_SETTINGS.model;
+  const key = saved.key || process.env.REACT_APP_LLM_API_KEY || DEFAULT_SETTINGS.key;
+  const isOllama = isLocalBase(base);
   return {
-    provider: provider.id,
+    provider: isOllama ? 'ollama' : 'groq',
     base,
     model,
     key,
-    enabled: Boolean(base && model),  // Ollama tidak butuh key
+    enabled: true, // Otomatis aktif langsung menggunakan model gratis
     isOllama,
   };
 }

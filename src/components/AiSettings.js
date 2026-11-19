@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { PROVIDERS, getLlmSettings, saveLlmSettings, clearLlmSettings, maskKey } from '../lib/llmSettings';
+import { PROVIDERS, getLlmSettings, saveLlmSettings, clearLlmSettings, maskKey, isHttpsPage } from '../lib/llmSettings';
 import { testLlm } from '../lib/classifier';
 
 export default function AiSettings({ open, onClose, onSaved }) {
-  const [provider, setProvider] = useState('ollama');
-  const [base, setBase] = useState('http://localhost:11434/v1');
+  const [provider, setProvider] = useState('kenari');
+  const [base, setBase] = useState('https://kenari.id/v1');
   const [model, setModel] = useState('');
   const [key, setKey] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -12,6 +12,7 @@ export default function AiSettings({ open, onClose, onSaved }) {
   const [msg, setMsg] = useState(null);
   const [ollamaModels, setOllamaModels] = useState([]);   // daftar model yang sudah ter-pull
   const [fetchingModels, setFetchingModels] = useState(false);
+  const [proxyReady, setProxyReady] = useState(false);    // server punya key (mode siap pakai)
 
   // Ambil daftar model dari Ollama lokal
   const fetchOllamaModels = useCallback(async (baseUrl) => {
@@ -54,6 +55,10 @@ export default function AiSettings({ open, onClose, onSaved }) {
     if (s.provider === 'ollama') {
       fetchOllamaModels(s.base);
     }
+    fetch('/api/classify', { headers: { Accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setProxyReady(Boolean(d && d.configured)))
+      .catch(() => setProxyReady(false));
   }, [open, fetchOllamaModels]);
 
   useEffect(() => {
@@ -122,6 +127,18 @@ export default function AiSettings({ open, onClose, onSaved }) {
         </div>
 
         <form onSubmit={save} className="modal-body">
+          {proxyReady && (
+            <p className="inline-msg ok">
+              AI sudah aktif lewat server (key tersimpan aman di server). Anda tidak perlu mengisi apa pun —
+              klasifikasi berjalan otomatis tanpa perlu menyalakan komputer/laptop.
+            </p>
+          )}
+          {isHttpsPage() && (
+            <p className="inline-msg warn">
+              Situs ini dibuka lewat https. Provider <strong>lokal (Ollama)</strong> tidak bisa dipakai di sini —
+              browser memblokir akses ke http://localhost. Pakai provider cloud gratis seperti Kenari.id.
+            </p>
+          )}
           <label className="field">
             <span>Provider</span>
             <select value={provider} onChange={(e) => pickProvider(e.target.value)}>

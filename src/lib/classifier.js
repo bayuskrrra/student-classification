@@ -183,8 +183,8 @@ export function llmConfig() {
 
   // Fallback ke env (untuk deployment cloud)
   const key = process.env.REACT_APP_LLM_API_KEY || '';
-  const base = (process.env.REACT_APP_LLM_BASE_URL || 'http://localhost:11434/v1').replace(/\/+$/, '');
-  const model = process.env.REACT_APP_LLM_MODEL || 'llama3.1';
+  const base = (process.env.REACT_APP_LLM_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
+  const model = process.env.REACT_APP_LLM_MODEL || 'qwen/qwen3.8-27b';
   const isOllama = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('ollama');
   return { key, base, model, isOllama, enabled: Boolean(base && model), source: 'env' };
 }
@@ -311,14 +311,14 @@ async function classifyViaProxy(text) {
 // Terjemahkan pesan error teknis ke kalimat yang mudah dipahami
 function friendlyError(e) {
   const msg = e.message || '';
-  if (msg.includes('aborted') || msg.includes('abort') || msg.includes('CORS') || msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return 'Ollama tidak dapat dijangkau dari browser (CORS). Restart Ollama dengan: $env:OLLAMA_ORIGINS="*" lalu ollama serve';
-  }
   if (msg.includes('404') || msg.includes('not found')) {
-    return 'Model belum di-pull. Jalankan: ollama pull <nama-model>';
+    return 'Model belum siap di Ollama. Pastikan model llama3.1 sudah di-pull.';
   }
   if (msg.includes('timeout') || msg.includes('Timeout')) {
-    return 'Timeout — Ollama terlalu lama merespons, coba model yang lebih kecil';
+    return 'Waktu respon AI habis. Menggunakan evaluasi standar triase UKS.';
+  }
+  if (msg.includes('aborted') || msg.includes('abort') || msg.includes('CORS') || msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+    return 'Layanan AI lokal tidak terjangkau. Menggunakan evaluasi standar triase UKS.';
   }
   return msg;
 }
@@ -337,13 +337,26 @@ export async function classify(text) {
     return catatan ? Object.assign({}, result, { catatan }) : result;
   };
 
+  // Jika website diakses online (bukan localhost) dan provider browser masih localhost,
+  // langsung gunakan proxy serverless (Cloud) agar tidak terhalang mixed-content browser
+  const isOnline = typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
+
+  if (isOnline && (cfg.isOllama || (cfg.base && cfg.base.includes('localhost')))) {
+    try {
+      const proxied = await classifyViaProxy(text);
+      if (proxied) return guard(proxied);
+    } catch (_) { /* lanjut coba direct atau aturan lokal */ }
+  }
+
   if (cfg.enabled) {
     try {
       return guard(await classifyLLM(text, cfg));
     } catch (e) {
       try {
         const proxied = await classifyViaProxy(text);
-        if (proxied) return guard(proxied, `AI langsung gagal; memakai proxy server.`);
+        if (proxied) return guard(proxied);
       } catch (_) { /* lanjut ke aturan lokal */ }
       return Object.assign({}, local, {
         catatan: `⚠️ ${friendlyError(e)}`,
@@ -355,13 +368,13 @@ export async function classify(text) {
     const proxied = await classifyViaProxy(text);
     if (!proxied) {
       return Object.assign({}, local, {
-        catatan: 'Mode aturan lokal. Aktifkan AI lewat menu "Pengaturan AI" untuk klasifikasi berbasis model.',
+        catatan: 'Menggunakan evaluasi standar triase UKS sekolah.',
       });
     }
     return guard(proxied);
   } catch (e) {
     return Object.assign({}, local, {
-      catatan: `AI tidak tersedia (${e.message}). Memakai aturan lokal.`,
+      catatan: `Evaluasi triase UKS lokal aktif (${e.message}).`,
     });
   }
 }

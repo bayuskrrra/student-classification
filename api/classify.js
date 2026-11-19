@@ -11,9 +11,21 @@
 const AUTH_SCHEME = ['Bea', 'rer'].join('');
 
 const SYSTEM_PROMPT = `Anda asisten triase UKS sekolah. Tugas: menilai apakah siswa layak melanjutkan kegiatan belajar.
-Balas HANYA JSON valid tanpa markdown:
-{"status":"LAYAK|PERLU OBSERVASI|TIDAK LAYAK","confidence":0.0-1.0,"alasan":"ringkas 1-2 kalimat","rekomendasi":"tindakan konkret untuk petugas UKS","redFlags":["..."]}
-Aturan: tanda bahaya (penurunan kesadaran, kejang, sesak berat, nyeri dada, muntah berulang, demam >38.5C, perdarahan, cedera kepala, alergi berat, dehidrasi) => TIDAK LAYAK. Keluhan sedang => PERLU OBSERVASI. Keluhan ringan => LAYAK. Jangan menambahkan diagnosis pasti; sarankan rujukan bila ragu.`;
+Balas HANYA JSON valid tanpa markdown, contoh format:
+{"status":"LAYAK","confidence":0.91,"alasan":"Hanya pusing ringan tanpa tanda bahaya.","rekomendasi":"Minum air, istirahat sebentar.","redFlags":[]}
+
+Panduan confidence (WAJIB diisi sesuai kondisi nyata, JANGAN selalu 0.75):
+- 0.90-0.97 : keluhan sangat jelas, tidak ada ambiguitas
+- 0.75-0.89 : ada beberapa indikator, cukup jelas
+- 0.60-0.74 : informasi terbatas, perlu observasi lebih lanjut
+- 0.50-0.59 : sangat tidak jelas, banyak kemungkinan
+
+Aturan status:
+- TIDAK LAYAK : tanda bahaya (pingsan/penurunan kesadaran, kejang, sesak napas berat, nyeri dada, muntah >3x, demam >38.5C, perdarahan, cedera kepala, alergi berat, dehidrasi parah)
+- PERLU OBSERVASI : keluhan sedang (demam ringan, mual, nyeri haid, pusing berulang, lemas signifikan)
+- LAYAK : keluhan ringan atau tanpa tanda bahaya
+
+Jangan tambahkan penjelasan di luar JSON. Jangan diagnosis pasti. Sarankan rujukan bila ragu.`;
 
 function parseJsonLoose(s) {
   if (!s) return null;
@@ -37,8 +49,8 @@ function readContent(data) {
 function config() {
   return {
     key: process.env.LLM_API_KEY || '',
-    base: (process.env.LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, ''),
-    model: process.env.LLM_MODEL || 'gpt-4o-mini',
+    base: (process.env.LLM_BASE_URL || 'https://api.groq.com/openai/v1').replace(/\/+$/, ''),
+    model: process.env.LLM_MODEL || 'qwen/qwen3.8-27b',
   };
 }
 
@@ -52,6 +64,15 @@ export default async function handler(req, res) {
   const cfg = config();
 
   if (req.method === 'GET') {
+    if (req.query && req.query.probe) {
+      const t0 = Date.now();
+      try {
+        const r = await fetch(`${cfg.base}/models`, { signal: AbortSignal.timeout(15000) });
+        return res.status(200).json({ probe: 'ok', status: r.status, ms: Date.now() - t0, base: cfg.base, region: process.env.VERCEL_REGION });
+      } catch (e) {
+        return res.status(200).json({ probe: 'fail', ms: Date.now() - t0, error: String(e.message || e), base: cfg.base, region: process.env.VERCEL_REGION });
+      }
+    }
     return res.status(200).json({
       configured: Boolean(cfg.key),
       model: cfg.key ? cfg.model : null,
@@ -83,7 +104,7 @@ export default async function handler(req, res) {
   }
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 25000);
+  const timer = setTimeout(() => ctrl.abort(), 55000);
 
   try {
     const upstream = await fetch(`${cfg.base}/chat/completions`, {
@@ -91,12 +112,12 @@ export default async function handler(req, res) {
       signal: ctrl.signal,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `${AUTH_SCHEME} ${cfg.key}`,
+        Authorization: `Bearer ${cfg.key}`,
       },
       body: JSON.stringify({
         model: cfg.model,
         temperature: 0.2,
-        max_tokens: 500,
+        max_tokens: 300,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Deskripsi keluhan siswa: ${keluhan}` },
@@ -110,18 +131,18 @@ export default async function handler(req, res) {
     }
 
     const data = await upstream.json();
-    const parsed = parseJsonLoose(readContent(data));
-
+    const content = readContent(data);
+    const parsed = parseJsonLoose(content);
     if (!parsed || !parsed.status) {
-      return res.status(502).json({ error: 'invalid_llm_response', raw: readContent(data).slice(0, 300) });
+      return res.status(502).json({ error: 'invalid_llm_response', raw: content.slice(0, 300) });
     }
 
     const upper = String(parsed.status).toUpperCase();
     const status = upper.includes('TIDAK')
       ? 'TIDAK LAYAK'
       : upper.includes('OBSERVASI')
-      ? 'PERLU OBSERVASI'
-      : 'LAYAK';
+        ? 'PERLU OBSERVASI'
+        : 'LAYAK';
 
     return res.status(200).json({
       status,

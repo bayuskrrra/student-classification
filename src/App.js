@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import StudentForm from './components/StudentForm';
 import Results from './components/Results';
-import AiSettings from './components/AiSettings';
 import { classify } from './lib/classifier';
-import { getLlmSettings } from './lib/llmSettings';
 import { loadHistory, saveRecord, clearHistory, toCSV } from './lib/storage';
 import {
   HomeIcon,
@@ -31,8 +29,6 @@ const TABS = [
 export default function App() {
   const [tab, setTab] = useState('beranda');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [, setAiCfg] = useState({ enabled: false, model: '' });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [siswa, setSiswa] = useState(null);
@@ -40,7 +36,6 @@ export default function App() {
 
   useEffect(() => {
     setHistory(loadHistory());
-    setAiCfg(getLlmSettings());
   }, []);
 
   const go = (id) => {
@@ -347,12 +342,6 @@ export default function App() {
           </div>
         </div>
       </footer>
-
-      <AiSettings
-        open={aiOpen}
-        onClose={() => setAiOpen(false)}
-        onSaved={(cfg) => setAiCfg(cfg)}
-      />
     </div>
   );
 }
