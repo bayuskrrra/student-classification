@@ -1,15 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { PROVIDERS, getLlmSettings, saveLlmSettings, clearLlmSettings, maskKey } from '../lib/llmSettings';
 import { testLlm } from '../lib/classifier';
 
 export default function AiSettings({ open, onClose, onSaved }) {
-  const [provider, setProvider] = useState('kenari');
-  const [base, setBase] = useState('');
+  const [provider, setProvider] = useState('ollama');
+  const [base, setBase] = useState('http://localhost:11434/v1');
   const [model, setModel] = useState('');
   const [key, setKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [testing, setTesting] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [ollamaModels, setOllamaModels] = useState([]);   // daftar model yang sudah ter-pull
+  const [fetchingModels, setFetchingModels] = useState(false);
+
+  // Ambil daftar model dari Ollama lokal
+  const fetchOllamaModels = useCallback(async (baseUrl) => {
+    const ollamaBase = (baseUrl || 'http://localhost:11434').replace('/v1', '');
+    setFetchingModels(true);
+    try {
+      const res = await fetch(`${ollamaBase}/api/tags`, { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) throw new Error('Ollama tidak merespons');
+      const data = await res.json();
+      const names = (data.models || []).map((m) => m.name);
+      setOllamaModels(names);
+      // Auto-pilih model pertama jika model belum diset atau tidak ada di daftar
+      if (names.length > 0) {
+        setModel((prev) => (names.includes(prev) ? prev : names[0]));
+      }
+      if (names.length === 0) {
+        setMsg({ type: 'bad', text: 'Tidak ada model di Ollama. Jalankan: ollama pull llama3.2' });
+      } else {
+        setMsg(null);
+      }
+    } catch (_) {
+      setOllamaModels([]);
+      setMsg({ type: 'bad', text: 'Ollama tidak dapat dijangkau. Pastikan Ollama sudah berjalan (ollama serve).' });
+    } finally {
+      setFetchingModels(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -20,7 +49,12 @@ export default function AiSettings({ open, onClose, onSaved }) {
     setKey(s.key);
     setMsg(null);
     setShowKey(false);
-  }, [open]);
+    setOllamaModels([]);
+    // Auto-fetch model Ollama saat dialog dibuka
+    if (s.provider === 'ollama') {
+      fetchOllamaModels(s.base);
+    }
+  }, [open, fetchOllamaModels]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -36,6 +70,7 @@ export default function AiSettings({ open, onClose, onSaved }) {
   if (!open) return null;
 
   const preset = PROVIDERS.find((p) => p.id === provider) || PROVIDERS[0];
+  const isOllama = provider === 'ollama';
 
   const pickProvider = (id) => {
     const p = PROVIDERS.find((x) => x.id === id) || PROVIDERS[0];
@@ -43,6 +78,8 @@ export default function AiSettings({ open, onClose, onSaved }) {
     setBase(p.base);
     setModel(p.model);
     setMsg(null);
+    setOllamaModels([]);
+    if (id === 'ollama') fetchOllamaModels(p.base);
   };
 
   const current = () => ({ provider, base: base.trim(), model: model.trim(), key: key.trim() });
@@ -99,46 +136,78 @@ export default function AiSettings({ open, onClose, onSaved }) {
             <input
               value={base}
               onChange={(e) => setBase(e.target.value)}
-              placeholder="https://kenari.id/v1"
+              placeholder="http://localhost:11434/v1"
               autoComplete="off"
               spellCheck="false"
             />
           </label>
 
+          {/* Model — Ollama: dropdown dari daftar yg sudah di-pull; lainnya: free-text */}
           <label className="field">
-            <span>Model</span>
-            <input
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder={preset.model || 'nama-model'}
-              list="model-suggestions"
-              autoComplete="off"
-              spellCheck="false"
-            />
-            <datalist id="model-suggestions">
-              {(preset.models || []).map((m) => <option key={m} value={m} />)}
-            </datalist>
+            <span>
+              Model
+              {isOllama && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  style={{ marginLeft: 8, fontSize: '0.78rem', padding: '2px 8px' }}
+                  onClick={() => fetchOllamaModels(base)}
+                  disabled={fetchingModels}
+                >
+                  {fetchingModels ? 'Memuat…' : '↻ Refresh'}
+                </button>
+              )}
+            </span>
+            {isOllama && ollamaModels.length > 0 ? (
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {ollamaModels.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <input
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder={isOllama ? 'Klik Refresh untuk memuat model…' : (preset.model || 'nama-model')}
+                  list="model-suggestions"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                <datalist id="model-suggestions">
+                  {(preset.models || []).map((m) => <option key={m} value={m} />)}
+                </datalist>
+              </>
+            )}
+            {isOllama && ollamaModels.length > 0 && (
+              <small className="muted small">
+                {ollamaModels.length} model tersedia di Ollama lokal Anda.
+              </small>
+            )}
           </label>
 
-          <label className="field">
-            <span>API key</span>
-            <div className="input-row">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder={preset.hint || 'Tempel API key di sini'}
-                autoComplete="off"
-                spellCheck="false"
-              />
-              <button type="button" className="btn-ghost" onClick={() => setShowKey((v) => !v)}>
-                {showKey ? 'Sembunyikan' : 'Lihat'}
-              </button>
-            </div>
-            <small className="muted small">
-              {key ? `Tersimpan: ${maskKey(key)}` : 'Key hanya disimpan di browser ini (localStorage), tidak dikirim ke server aplikasi.'}
-            </small>
-          </label>
+          {/* API key — sembunyikan untuk Ollama */}
+          {!isOllama && (
+            <label className="field">
+              <span>API key</span>
+              <div className="input-row">
+                <input
+                  type={showKey ? 'text' : 'password'}
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  placeholder={preset.hint || 'Tempel API key di sini'}
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+                <button type="button" className="btn-ghost" onClick={() => setShowKey((v) => !v)}>
+                  {showKey ? 'Sembunyikan' : 'Lihat'}
+                </button>
+              </div>
+              <small className="muted small">
+                {key ? `Tersimpan: ${maskKey(key)}` : 'Key hanya disimpan di browser ini (localStorage), tidak dikirim ke server aplikasi.'}
+              </small>
+            </label>
+          )}
 
           {msg && <p className={`inline-msg ${msg.type}`}>{msg.text}</p>}
 
@@ -147,7 +216,7 @@ export default function AiSettings({ open, onClose, onSaved }) {
               {testing ? 'Menguji…' : 'Tes koneksi'}
             </button>
             <div className="spacer" />
-            {key && (
+            {key && !isOllama && (
               <button type="button" className="btn-ghost danger-text" onClick={remove}>
                 Hapus key
               </button>

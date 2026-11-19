@@ -5,19 +5,34 @@ import AiSettings from './components/AiSettings';
 import { classify } from './lib/classifier';
 import { getLlmSettings } from './lib/llmSettings';
 import { loadHistory, saveRecord, clearHistory, toCSV } from './lib/storage';
+import {
+  HomeIcon,
+  StethoscopeIcon,
+  HistoryIcon,
+  SchoolIcon,
+  PulseIcon,
+  ClipboardCheckIcon,
+  ShieldHealthIcon,
+  CheckCircleIcon,
+  AlertCircleIcon,
+  AlertTriangleIcon,
+  DownloadIcon,
+  TrashIcon,
+  ArrowRightIcon,
+} from './components/Icons';
 
 const TABS = [
-  { id: 'beranda', label: 'Beranda' },
-  { id: 'klasifikasi', label: 'Klasifikasi' },
-  { id: 'riwayat', label: 'Riwayat' },
-  { id: 'tentang', label: 'Profil Sekolah' },
+  { id: 'beranda', label: 'Beranda', icon: HomeIcon },
+  { id: 'klasifikasi', label: 'Klasifikasi', icon: StethoscopeIcon },
+  { id: 'riwayat', label: 'Riwayat', icon: HistoryIcon },
+  { id: 'tentang', label: 'Profil Sekolah', icon: SchoolIcon },
 ];
 
 export default function App() {
   const [tab, setTab] = useState('beranda');
   const [menuOpen, setMenuOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiCfg, setAiCfg] = useState({ enabled: false, model: '' });
+  const [, setAiCfg] = useState({ enabled: false, model: '' });
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [siswa, setSiswa] = useState(null);
@@ -105,24 +120,20 @@ export default function App() {
         </button>
 
         <nav className={`nav-links ${menuOpen ? 'open' : ''}`}>
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              className={`nav-btn ${tab === t.id ? 'active' : ''}`}
-              onClick={() => go(t.id)}
-            >
-              {t.label}
-              {t.id === 'riwayat' && history.length > 0 ? ` (${history.length})` : ''}
-            </button>
-          ))}
-          <button
-            className={`ai-pill ${aiCfg.enabled ? 'on' : 'off'}`}
-            onClick={() => { setAiOpen(true); setMenuOpen(false); }}
-            title={aiCfg.enabled ? `AI aktif: ${aiCfg.model}` : 'Klik untuk mengaktifkan AI'}
-          >
-            <span className="dot" />
-            {aiCfg.enabled ? 'AI aktif' : 'Aturan lokal'}
-          </button>
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                className={`nav-btn ${tab === t.id ? 'active' : ''}`}
+                onClick={() => go(t.id)}
+              >
+                <Icon size={16} />
+                <span>{t.label}</span>
+                {t.id === 'riwayat' && history.length > 0 ? ` (${history.length})` : ''}
+              </button>
+            );
+          })}
         </nav>
       </header>
 
@@ -138,17 +149,11 @@ export default function App() {
               </p>
               <div className="hero-actions">
                 <button className="btn-hero-primary" onClick={() => go('klasifikasi')}>
-                  Mulai Klasifikasi
-                </button>
-                <button className="btn-hero-secondary" onClick={() => setAiOpen(true)}>
-                  {aiCfg.enabled ? 'Pengaturan AI' : 'Aktifkan AI'}
+                  <span>Mulai Klasifikasi</span>
+                  <ArrowRightIcon size={16} />
                 </button>
               </div>
-              <p className="hero-note">
-                {aiCfg.enabled
-                  ? `Klasifikasi memakai model ${aiCfg.model}.`
-                  : 'Belum ada API key — sistem berjalan dengan aturan lokal. Klik "Aktifkan AI" untuk memakai model bahasa.'}
-              </p>
+
             </div>
 
             <div className="hero-right">
@@ -168,18 +173,27 @@ export default function App() {
 
           <section className="features-grid">
             <div className="feature-card">
+              <div className="icon-badge pulse">
+                <PulseIcon size={22} />
+              </div>
               <div className="feature-info">
                 <h3>Klasifikasi Kondisi</h3>
                 <p>Mengevaluasi tingkat keparahan berdasarkan gejala dan keluhan yang disampaikan siswa.</p>
               </div>
             </div>
             <div className="feature-card">
+              <div className="icon-badge shield">
+                <ShieldHealthIcon size={22} />
+              </div>
               <div className="feature-info">
                 <h3>Rekomendasi Tindakan</h3>
                 <p>Petunjuk tindakan standar seperti observasi UKS, istirahat, atau rujukan medis.</p>
               </div>
             </div>
             <div className="feature-card">
+              <div className="icon-badge clipboard">
+                <ClipboardCheckIcon size={22} />
+              </div>
               <div className="feature-info">
                 <h3>Pencatatan Riwayat</h3>
                 <p>Pendataan rekam pemeriksaan kesehatan siswa terstruktur dan rapi.</p>
@@ -193,15 +207,24 @@ export default function App() {
             </div>
             <div className="severity-cards">
               <div className="severity-card">
-                <span className="severity-title">Ringan</span>
+                <span className="severity-title ringan">
+                  <CheckCircleIcon size={16} />
+                  <span>Ringan</span>
+                </span>
                 <p className="severity-desc">Siswa dapat diistirahatkan dan diobservasi singkat di UKS (±15-30 menit) sebelum kembali ke kelas.</p>
               </div>
               <div className="severity-card">
-                <span className="severity-title">Sedang</span>
+                <span className="severity-title sedang">
+                  <AlertCircleIcon size={16} />
+                  <span>Sedang</span>
+                </span>
                 <p className="severity-desc">Memerlukan pemantauan berkala di UKS dan penanganan standar, serta koordinasi dengan wali siswa bila diperlukan.</p>
               </div>
               <div className="severity-card">
-                <span className="severity-title">Berat</span>
+                <span className="severity-title berat">
+                  <AlertTriangleIcon size={16} />
+                  <span>Berat</span>
+                </span>
                 <p className="severity-desc">Perlu pertolongan pertama segera, pemanggilan orang tua/wali, serta penanganan rujukan ke faskes terdekat.</p>
               </div>
             </div>
@@ -221,12 +244,14 @@ export default function App() {
           {result && (
             <>
               {siswa && (
-                <p className="muted center">
-                  Data Siswa: <strong>{siswa.nama || 'Tanpa nama'}</strong>
-                  {siswa.kelas ? ` · Kelas ${siswa.kelas}` : ''}
-                </p>
+                <div className="student-badge-wrap">
+                  <div className="student-badge">
+                    <span>Siswa: <strong>{siswa.nama || 'Tanpa nama'}</strong></span>
+                    {siswa.kelas && <span className="student-badge-kelas">Kelas {siswa.kelas}</span>}
+                  </div>
+                </div>
               )}
-              <Results result={result} onReset={reset} />
+              <Results result={result} siswa={siswa} onReset={reset} />
             </>
           )}
         </main>
@@ -239,14 +264,16 @@ export default function App() {
               <h2>Riwayat Pemeriksaan ({history.length})</h2>
               <div className="actions">
                 <button className="btn-ghost" onClick={exportCSV} disabled={!history.length}>
-                  Ekspor CSV
+                  <DownloadIcon size={15} />
+                  <span>Ekspor CSV</span>
                 </button>
                 <button
                   className="btn-ghost danger-text"
                   onClick={() => setHistory(clearHistory())}
                   disabled={!history.length}
                 >
-                  Hapus Data
+                  <TrashIcon size={15} />
+                  <span>Hapus Data</span>
                 </button>
               </div>
             </div>

@@ -74,9 +74,9 @@ export const PROVIDERS = [
 ];
 
 export const DEFAULT_SETTINGS = {
-  provider: 'kenari',
-  base: 'https://kenari.id/v1',
-  model: 'glm-4-7-flash:free',
+  provider: 'ollama',
+  base: 'http://localhost:11434/v1',
+  model: 'llama3.1',
   key: '',
 };
 
@@ -87,16 +87,18 @@ export function getLlmSettings() {
   } catch (_) {
     saved = {};
   }
-  const provider = PROVIDERS.find((p) => p.id === saved.provider) || PROVIDERS[0];
+  const provider = PROVIDERS.find((p) => p.id === saved.provider) || PROVIDERS.find((p) => p.id === 'ollama');
   const base = (saved.base || provider.base || '').replace(/\/+$/, '');
   const model = saved.model || provider.model || '';
   const key = saved.key || '';
+  const isOllama = (saved.provider || 'ollama') === 'ollama' || base.includes('localhost') || base.includes('127.0.0.1') || base.includes('ollama');
   return {
     provider: provider.id,
     base,
     model,
     key,
-    enabled: Boolean(key && base && model),
+    enabled: Boolean(base && model),  // Ollama tidak butuh key
+    isOllama,
   };
 }
 

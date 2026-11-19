@@ -131,6 +131,9 @@ a { color: var(--brand-primary); }
   font-family: inherit;
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
 .nav-btn:hover { color: var(--text-dark); background: #f1f5f9; }
@@ -267,6 +270,10 @@ a { color: var(--brand-primary); }
   color: #ffffff;
   border: 1px solid var(--brand-primary);
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .btn-hero-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); }
@@ -346,6 +353,46 @@ a { color: var(--brand-primary); }
   border-radius: var(--radius-lg);
   padding: 24px;
   box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  background: #f1f5f9;
+  color: var(--brand-primary);
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.icon-badge.pulse {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #dbeafe;
+}
+
+.icon-badge.shield {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.icon-badge.clipboard {
+  background: #faf5ff;
+  color: #6d28d9;
+  border-color: #ede9fe;
 }
 
 .feature-info h3 {
@@ -395,9 +442,15 @@ a { color: var(--brand-primary); }
   font-weight: 600;
   font-size: 0.95rem;
   color: #0f172a;
-  margin-bottom: 6px;
-  display: block;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
+
+.severity-title.ringan { color: #065f46; }
+.severity-title.sedang { color: #92400e; }
+.severity-title.berat  { color: #991b1b; }
 
 .severity-desc {
   margin: 0;
@@ -425,6 +478,49 @@ a { color: var(--brand-primary); }
 }
 
 .form-page-header p { margin: 0; }
+
+/* Grid kolom seimbang untuk input siswa */
+.student-grid-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.student-grid-row .field {
+  margin-bottom: 16px;
+}
+
+.photo-field {
+  margin-bottom: 18px;
+}
+
+.student-badge-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.student-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--text-dark);
+}
+
+.student-badge-kelas {
+  background: #e2e8f0;
+  color: #334155;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
 
 .row {
   display: flex;
@@ -517,6 +613,10 @@ select:focus {
   border: 1px solid var(--brand-primary);
   cursor: pointer;
   transition: background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .btn-primary:hover:not(:disabled) { background: var(--brand-hover); border-color: var(--brand-hover); }
@@ -532,6 +632,10 @@ select:focus {
   font-size: 0.88rem;
   font-family: inherit;
   transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .btn-ghost:hover:not(:disabled) { color: var(--text-dark); border-color: #cbd5e1; background: #f8fafc; }
@@ -815,6 +919,95 @@ tbody tr:hover { background: #f8fafc; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.99); } to { opacity: 1; transform: none; } }
 
+/* ---------------- Kamera & Foto Base ---------------- */
+.camera-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.9rem;
+  padding: 10px 18px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: var(--radius-md);
+  color: var(--text-dark);
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.camera-btn:hover {
+  background: #f1f5f9;
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.photo-preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.photo-preview {
+  width: 110px;
+  height: 82px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.photo-remove-btn {
+  font-size: 0.82rem;
+  color: #dc2626;
+  padding: 5px 12px;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+}
+
+/* Modal kamera */
+.camera-modal {
+  width: min(480px, 96vw);
+}
+
+.camera-body {
+  padding: 0 24px 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.camera-video {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-md);
+  background: #000;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+}
+
+.camera-actions {
+  justify-content: center;
+  gap: 16px;
+  padding-bottom: 20px;
+}
+
+/* Foto di card result */
+.result-photo {
+  width: 68px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-color);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 /* ============================================================
    RESPONSIVE
    ============================================================ */
@@ -886,6 +1079,42 @@ tbody tr:hover { background: #f8fafc; }
 
   .card { padding: 18px; border-radius: var(--radius-md); }
 
+  /* Kolom input Nama & Kelas seimbang di HP */
+  .student-grid-row {
+    grid-template-columns: 1.85fr 1fr;
+    gap: 10px;
+    margin-bottom: 0;
+  }
+  .student-grid-row .field {
+    margin-bottom: 14px;
+    flex: none;
+  }
+
+  .camera-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 11px 16px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+  }
+
+  .photo-preview-wrap {
+    width: 100%;
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .photo-preview {
+    width: 72px;
+    height: 54px;
+    border-radius: 6px;
+  }
+
   .row { flex-direction: column; gap: 0; }
   .row.between { flex-direction: column; align-items: stretch; gap: 12px; }
   .row.between .actions { width: 100%; }
@@ -893,13 +1122,39 @@ tbody tr:hover { background: #f8fafc; }
 
   .field { flex: 1 1 100%; }
 
-  .chips { gap: 6px; }
-  .chip { font-size: 0.74rem; padding: 6px 10px; }
+  .chips { gap: 6px; margin: 6px 0 16px; }
+  .chip { font-size: 0.75rem; padding: 6px 11px; border-radius: 6px; }
 
   .btn-primary { width: 100%; padding: 13px 20px; }
 
-  .result-head { gap: 10px; }
-  .badge { width: 34px; height: 34px; font-size: 1rem; }
+  .result-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .result-head .badge {
+    width: 36px;
+    height: 36px;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .result-head > div {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .result-head h2 {
+    font-size: 1.05rem;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+  .result-photo {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    margin-left: auto;
+  }
+
   .result .actions { flex-direction: column; align-items: stretch; }
   .result .actions .btn-ghost,
   .result .actions .btn-primary { width: 100%; }
@@ -957,7 +1212,17 @@ tbody tr:hover { background: #f8fafc; }
   .footer-content { flex-direction: column; align-items: flex-start; }
 }
 
-/* Layar sangat kecil */
+/* Layar kecil & sangat kecil */
+@media (max-width: 380px) {
+  .student-grid-row {
+    grid-template-columns: 1.6fr 1fr;
+    gap: 8px;
+  }
+  .student-grid-row .field > span {
+    font-size: 0.8rem;
+  }
+}
+
 @media (max-width: 360px) {
   .brand-text .system-tag { display: none; }
   .hero-title { font-size: 1.45rem; }

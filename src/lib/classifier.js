@@ -119,9 +119,21 @@ export function classifyLocal(text) {
 const AUTH_SCHEME = ['Bea', 'rer'].join('');
 
 const SYSTEM_PROMPT = `Anda asisten triase UKS sekolah. Tugas: menilai apakah siswa layak melanjutkan kegiatan belajar.
-Balas HANYA JSON valid tanpa markdown:
-{"status":"LAYAK|PERLU OBSERVASI|TIDAK LAYAK","confidence":0.0-1.0,"alasan":"ringkas 1-2 kalimat","rekomendasi":"tindakan konkret untuk petugas UKS","redFlags":["..."]}
-Aturan: tanda bahaya (penurunan kesadaran, kejang, sesak berat, nyeri dada, muntah berulang, demam >38.5C, perdarahan, cedera kepala, alergi berat, dehidrasi) => TIDAK LAYAK. Keluhan sedang => PERLU OBSERVASI. Keluhan ringan => LAYAK. Jangan menambahkan diagnosis pasti; sarankan rujukan bila ragu.`;
+Balas HANYA JSON valid tanpa markdown, contoh format:
+{"status":"LAYAK","confidence":0.91,"alasan":"Hanya pusing ringan tanpa tanda bahaya.","rekomendasi":"Minum air, istirahat sebentar.","redFlags":[]}
+
+Panduan confidence (WAJIB diisi sesuai kondisi nyata, JANGAN selalu 0.75):
+- 0.90-0.97 : keluhan sangat jelas, tidak ada ambiguitas
+- 0.75-0.89 : ada beberapa indikator, cukup jelas
+- 0.60-0.74 : informasi terbatas, perlu observasi lebih lanjut
+- 0.50-0.59 : sangat tidak jelas, banyak kemungkinan
+
+Aturan status:
+- TIDAK LAYAK : tanda bahaya (pingsan/penurunan kesadaran, kejang, sesak napas berat, nyeri dada, muntah >3x, demam >38.5C, perdarahan, cedera kepala, alergi berat, dehidrasi parah)
+- PERLU OBSERVASI : keluhan sedang (demam ringan, mual, nyeri haid, pusing berulang, lemas signifikan)
+- LAYAK : keluhan ringan atau tanpa tanda bahaya
+
+Jangan tambahkan penjelasan di luar JSON. Jangan diagnosis pasti. Sarankan rujukan bila ragu.`;
 
 function parseJsonLoose(s) {
   if (!s) return null;
@@ -149,11 +161,16 @@ function readContent(data) {
   return '';
 }
 
-async function fetchWithTimeout(url, options, ms) {
+async function fetchWithTimeout(url, options, ms = 90000) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), ms || 30000);
+  const timer = setTimeout(() => ctrl.abort(), ms);
   try {
     return await fetch(url, Object.assign({}, options, { signal: ctrl.signal }));
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Koneksi timeout (${Math.round(ms / 1000)}s) atau dibatalkan oleh browser/CORS.`);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -164,24 +181,36 @@ export function llmConfig() {
   const saved = getLlmSettings();
   if (saved.enabled) return Object.assign({}, saved, { source: 'pengaturan' });
 
+  // Fallback ke env (untuk deployment cloud)
   const key = process.env.REACT_APP_LLM_API_KEY || '';
-  const base = (process.env.REACT_APP_LLM_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
-  const model = process.env.REACT_APP_LLM_MODEL || 'gpt-4o-mini';
-  return { key, base, model, enabled: Boolean(key), source: 'env' };
+  const base = (process.env.REACT_APP_LLM_BASE_URL || 'http://localhost:11434/v1').replace(/\/+$/, '');
+  const model = process.env.REACT_APP_LLM_MODEL || 'llama3.1';
+  const isOllama = base.includes('localhost') || base.includes('127.0.0.1') || base.includes('ollama');
+  return { key, base, model, isOllama, enabled: Boolean(base && model), source: 'env' };
 }
 
 export async function classifyLLM(text, cfg) {
+  const isOllama = cfg.isOllama || cfg.provider === 'ollama'
+    || (cfg.base || '').includes('localhost')
+    || (cfg.base || '').includes('127.0.0.1');
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (!isOllama && cfg.key) {
+    headers['Authorization'] = `${AUTH_SCHEME} ${cfg.key}`;
+  }
+  if (isOllama && cfg.key && cfg.key !== 'ollama') {
+    // Kalau user isi key manual untuk ollama, tetap kirim
+    headers['Authorization'] = `${AUTH_SCHEME} ${cfg.key}`;
+  }
+
   const res = await fetchWithTimeout(
     `${cfg.base}/chat/completions`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `${AUTH_SCHEME} ${cfg.key}`,
-      },
+      headers,
       body: JSON.stringify({
         model: cfg.model,
-        temperature: 0.2,
+        temperature: 0.3,
         max_tokens: 500,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
@@ -189,7 +218,7 @@ export async function classifyLLM(text, cfg) {
         ],
       }),
     },
-    30000
+    90000
   );
 
   if (!res.ok) {
@@ -201,9 +230,19 @@ export async function classifyLLM(text, cfg) {
   const parsed = parseJsonLoose(readContent(data));
   if (!parsed || !parsed.status) throw new Error('Format balasan LLM tidak valid (bukan JSON)');
 
+  // Normalisasi confidence: kalau model kirim integer (mis. 75 bukan 0.75), konversi
+  let rawConf = Number(parsed.confidence);
+  if (rawConf > 1) rawConf = rawConf / 100;  // mis. 75 → 0.75
+  // Kalau persis 0.75 (nilai lazy default model), campur dengan skor aturan lokal
+  const localScore = classifyLocal(text);
+  const isLazy = Math.abs(rawConf - 0.75) < 0.001;
+  const confidence = isLazy
+    ? clamp((localScore.confidence * 0.4) + (rawConf * 0.6), 0.52, 0.95)
+    : clamp(rawConf || 0.78, 0, 1);
+
   return {
     status: normalizeStatus(parsed.status),
-    confidence: clamp(Number(parsed.confidence) || 0.8, 0, 1),
+    confidence,
     alasan: parsed.alasan || '-',
     rekomendasi: parsed.rekomendasi || '-',
     redFlags: Array.isArray(parsed.redFlags) ? parsed.redFlags.filter(Boolean).map(String) : [],
@@ -214,14 +253,19 @@ export async function classifyLLM(text, cfg) {
 // Tes koneksi dari panel pengaturan.
 export async function testLlm(cfg) {
   if (!cfg.base || !cfg.model) throw new Error('Base URL dan model wajib diisi.');
+  const isOllama = cfg.isOllama || cfg.provider === 'ollama'
+    || (cfg.base || '').includes('localhost')
+    || (cfg.base || '').includes('127.0.0.1');
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (!isOllama && cfg.key) headers['Authorization'] = `${AUTH_SCHEME} ${cfg.key}`;
+  if (isOllama && cfg.key && cfg.key !== 'ollama') headers['Authorization'] = `${AUTH_SCHEME} ${cfg.key}`;
+
   const res = await fetchWithTimeout(
     `${cfg.base}/chat/completions`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `${AUTH_SCHEME} ${cfg.key || 'ollama'}`,
-      },
+      headers,
       body: JSON.stringify({
         model: cfg.model,
         max_tokens: 10,
@@ -264,6 +308,21 @@ async function classifyViaProxy(text) {
   return Object.assign({}, data, { sumber: data.sumber || 'AI · proxy server' });
 }
 
+// Terjemahkan pesan error teknis ke kalimat yang mudah dipahami
+function friendlyError(e) {
+  const msg = e.message || '';
+  if (msg.includes('aborted') || msg.includes('abort') || msg.includes('CORS') || msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+    return 'Ollama tidak dapat dijangkau dari browser (CORS). Restart Ollama dengan: $env:OLLAMA_ORIGINS="*" lalu ollama serve';
+  }
+  if (msg.includes('404') || msg.includes('not found')) {
+    return 'Model belum di-pull. Jalankan: ollama pull <nama-model>';
+  }
+  if (msg.includes('timeout') || msg.includes('Timeout')) {
+    return 'Timeout — Ollama terlalu lama merespons, coba model yang lebih kecil';
+  }
+  return msg;
+}
+
 // Gabungan: pengaturan pengguna -> proxy server -> aturan lokal.
 export async function classify(text) {
   const local = classifyLocal(text);
@@ -284,10 +343,10 @@ export async function classify(text) {
     } catch (e) {
       try {
         const proxied = await classifyViaProxy(text);
-        if (proxied) return guard(proxied, `AI langsung gagal (${e.message}); memakai proxy server.`);
+        if (proxied) return guard(proxied, `AI langsung gagal; memakai proxy server.`);
       } catch (_) { /* lanjut ke aturan lokal */ }
       return Object.assign({}, local, {
-        catatan: `AI tidak dapat dihubungi (${e.message}). Memakai aturan lokal.`,
+        catatan: `⚠️ ${friendlyError(e)}`,
       });
     }
   }
